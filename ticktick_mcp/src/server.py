@@ -118,7 +118,7 @@ async def get_projects(size: int = 50) -> str:
     Get all projects from TickTick.
 
     Args:
-        size: Maximum number of projects to return (default: 50, max: 200)
+        size: Maximum number of projects to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -127,9 +127,6 @@ async def get_projects(size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -183,7 +180,7 @@ async def get_project_tasks(project_id: str, size: int = 50) -> str:
 
     Args:
         project_id: ID of the project
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -192,9 +189,6 @@ async def get_project_tasks(project_id: str, size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         project_data = ticktick.get_project_with_data(project_id)
         if 'error' in project_data:
@@ -575,7 +569,7 @@ def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name:
         projects: List of project dictionaries
         filter_func: Function that takes a task and returns True if it matches the filter
         filter_name: Name of the filter for output formatting
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
 
     Returns:
         Formatted string of filtered tasks
@@ -583,8 +577,6 @@ def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name:
     # Validate size parameter
     if size < 1:
         size = 1
-    if size > 200:
-        size = 200
 
     if not projects:
         return "No projects found."
@@ -635,7 +627,7 @@ async def get_all_tasks(size: int = 50) -> str:
     Get all tasks from TickTick. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -644,9 +636,6 @@ async def get_all_tasks(size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -668,7 +657,7 @@ async def get_tasks_by_priority(priority_id: int, size: int = 50) -> str:
 
     Args:
         priority_id: Priority of tasks to retrieve {0: "None", 1: "Low", 3: "Medium", 5: "High"}
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -680,9 +669,6 @@ async def get_tasks_by_priority(priority_id: int, size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -704,7 +690,7 @@ async def get_tasks_due_today(size: int = 50) -> str:
     Get all tasks from TickTick that are due today. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -713,9 +699,6 @@ async def get_tasks_due_today(size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -736,7 +719,7 @@ async def get_overdue_tasks(size: int = 50) -> str:
     Get all overdue tasks from TickTick. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -745,9 +728,6 @@ async def get_overdue_tasks(size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -768,7 +748,7 @@ async def get_tasks_due_tomorrow(size: int = 50) -> str:
     Get all tasks from TickTick that are due tomorrow. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -777,9 +757,6 @@ async def get_tasks_due_tomorrow(size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -801,7 +778,7 @@ async def get_tasks_due_in_days(days: int, size: int = 50) -> str:
 
     Args:
         days: Number of days from today (0 = today, 1 = tomorrow, etc.)
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -813,9 +790,6 @@ async def get_tasks_due_in_days(days: int, size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -837,7 +811,7 @@ async def get_tasks_due_this_week(size: int = 50) -> str:
     Get all tasks from TickTick that are due within the next 7 days. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -846,9 +820,6 @@ async def get_tasks_due_this_week(size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -880,7 +851,7 @@ async def search_tasks(search_term: str, size: int = 50) -> str:
 
     Args:
         search_term: Text to search for (case-insensitive)
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -892,9 +863,6 @@ async def search_tasks(search_term: str, size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -1017,7 +985,7 @@ async def get_engaged_tasks(size: int = 50) -> str:
     This includes tasks marked as high priority (5), due today or overdue.
 
     Args:
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -1026,9 +994,6 @@ async def get_engaged_tasks(size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -1053,7 +1018,7 @@ async def get_next_tasks(size: int = 50) -> str:
     This includes tasks marked as medium priority (3) or due tomorrow.
 
     Args:
-        size: Maximum number of tasks to return (default: 50, max: 200)
+        size: Maximum number of tasks to return (default: 50)
     """
     if not ticktick:
         if not initialize_client():
@@ -1062,9 +1027,6 @@ async def get_next_tasks(size: int = 50) -> str:
     # Validate size parameter
     if size < 1:
         return "Size must be at least 1."
-    if size > 200:
-        size = 200
-
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:

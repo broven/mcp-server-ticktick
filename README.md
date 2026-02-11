@@ -135,9 +135,9 @@ Once connected, you'll see the TickTick MCP server tools available in Claude, in
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `get_projects` | List all your TickTick projects | `size` (optional, default: 50, max: 200) |
+| `get_projects` | List all your TickTick projects | `size` (optional, default: 50) |
 | `get_project` | Get details about a specific project | `project_id` |
-| `get_project_tasks` | List all tasks in a project | `project_id`, `size` (optional, default: 50, max: 200) |
+| `get_project_tasks` | List all tasks in a project | `project_id`, `size` (optional, default: 50) |
 | `get_task` | Get details about a specific task | `project_id`, `task_id` |
 | `create_task` | Create a new task | `title`, `project_id`, `content` (optional), `start_date` (optional), `due_date` (optional), `priority` (optional) |
 | `update_task` | Update an existing task | `task_id`, `project_id`, `title` (optional), `content` (optional), `start_date` (optional), `due_date` (optional), `priority` (optional) |
@@ -151,24 +151,24 @@ Once connected, you'll see the TickTick MCP server tools available in Claude, in
 ### Task Retrieval & Search
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `get_all_tasks` | Get all tasks from all projects | `size` (optional, default: 50, max: 200) |
-| `get_tasks_by_priority` | Get tasks filtered by priority level | `priority_id` (0: None, 1: Low, 3: Medium, 5: High), `size` (optional, default: 50, max: 200) |
-| `search_tasks` | Search tasks by title, content, or subtasks | `search_term`, `size` (optional, default: 50, max: 200) |
+| `get_all_tasks` | Get all tasks from all projects | `size` (optional, default: 50) |
+| `get_tasks_by_priority` | Get tasks filtered by priority level | `priority_id` (0: None, 1: Low, 3: Medium, 5: High), `size` (optional, default: 50) |
+| `search_tasks` | Search tasks by title, content, or subtasks | `search_term`, `size` (optional, default: 50) |
 
 ### Date-Based Task Retrieval
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `get_tasks_due_today` | Get all tasks due today | `size` (optional, default: 50, max: 200) |
-| `get_tasks_due_tomorrow` | Get all tasks due tomorrow | `size` (optional, default: 50, max: 200) |
-| `get_tasks_due_in_days` | Get tasks due in exactly X days | `days` (0 = today, 1 = tomorrow, etc.), `size` (optional, default: 50, max: 200) |
-| `get_tasks_due_this_week` | Get tasks due within the next 7 days | `size` (optional, default: 50, max: 200) |
-| `get_overdue_tasks` | Get all overdue tasks | `size` (optional, default: 50, max: 200) |
+| `get_tasks_due_today` | Get all tasks due today | `size` (optional, default: 50) |
+| `get_tasks_due_tomorrow` | Get all tasks due tomorrow | `size` (optional, default: 50) |
+| `get_tasks_due_in_days` | Get tasks due in exactly X days | `days` (0 = today, 1 = tomorrow, etc.), `size` (optional, default: 50) |
+| `get_tasks_due_this_week` | Get tasks due within the next 7 days | `size` (optional, default: 50) |
+| `get_overdue_tasks` | Get all overdue tasks | `size` (optional, default: 50) |
 
 ### Getting Things Done (GTD) Framework
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `get_engaged_tasks` | Get "engaged" tasks (high priority or overdue) | `size` (optional, default: 50, max: 200) |
-| `get_next_tasks` | Get "next" tasks (medium priority or due tomorrow) | `size` (optional, default: 50, max: 200) |
+| `get_engaged_tasks` | Get "engaged" tasks (high priority or overdue) | `size` (optional, default: 50) |
+| `get_next_tasks` | Get "next" tasks (medium priority or due tomorrow) | `size` (optional, default: 50) |
 | `batch_create_tasks` | Create multiple tasks at once | `tasks` (list of task dictionaries) |
 
 ## Example Prompts for Claude
