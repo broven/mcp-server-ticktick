@@ -662,145 +662,203 @@ async def get_all_tasks(size: int = 50) -> str:
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_tasks_by_priority(priority_id: int) -> str:
+async def get_tasks_by_priority(priority_id: int, size: int = 50) -> str:
     """
     Get all tasks from TickTick by priority. Ignores closed projects.
 
     Args:
         priority_id: Priority of tasks to retrieve {0: "None", 1: "Low", 3: "Medium", 5: "High"}
+        size: Maximum number of tasks to return (default: 50, max: 200)
     """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
     if priority_id not in PRIORITY_MAP:
         return f"Invalid priority_id. Valid values: {list(PRIORITY_MAP.keys())}"
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def priority_filter(task: Dict[str, Any]) -> bool:
             return task.get('priority', 0) == priority_id
-        
+
         priority_name = f"{PRIORITY_MAP[priority_id]} ({priority_id})"
-        return _get_project_tasks_by_filter(projects, priority_filter, f"priority '{priority_name}'")
-        
+        return _get_project_tasks_by_filter(projects, priority_filter, f"priority '{priority_name}'", size)
+
     except Exception as e:
         logger.error(f"Error in get_tasks_by_priority: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_tasks_due_today() -> str:
-    """Get all tasks from TickTick that are due today. Ignores closed projects."""
+async def get_tasks_due_today(size: int = 50) -> str:
+    """
+    Get all tasks from TickTick that are due today. Ignores closed projects.
+
+    Args:
+        size: Maximum number of tasks to return (default: 50, max: 200)
+    """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def today_filter(task: Dict[str, Any]) -> bool:
             return _is_task_due_today(task)
-        
-        return _get_project_tasks_by_filter(projects, today_filter, "due today")
-        
+
+        return _get_project_tasks_by_filter(projects, today_filter, "due today", size)
+
     except Exception as e:
         logger.error(f"Error in get_tasks_due_today: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_overdue_tasks() -> str:
-    """Get all overdue tasks from TickTick. Ignores closed projects."""
+async def get_overdue_tasks(size: int = 50) -> str:
+    """
+    Get all overdue tasks from TickTick. Ignores closed projects.
+
+    Args:
+        size: Maximum number of tasks to return (default: 50, max: 200)
+    """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def overdue_filter(task: Dict[str, Any]) -> bool:
             return _is_task_overdue(task)
-        
-        return _get_project_tasks_by_filter(projects, overdue_filter, "overdue")
-        
+
+        return _get_project_tasks_by_filter(projects, overdue_filter, "overdue", size)
+
     except Exception as e:
         logger.error(f"Error in get_overdue_tasks: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_tasks_due_tomorrow() -> str:
-    """Get all tasks from TickTick that are due today. Ignores closed projects."""
+async def get_tasks_due_tomorrow(size: int = 50) -> str:
+    """
+    Get all tasks from TickTick that are due tomorrow. Ignores closed projects.
+
+    Args:
+        size: Maximum number of tasks to return (default: 50, max: 200)
+    """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
-        def today_filter(task: Dict[str, Any]) -> bool:
+
+        def tomorrow_filter(task: Dict[str, Any]) -> bool:
             return _is_task_due_in_days(task, 1)
-        
-        return _get_project_tasks_by_filter(projects, today_filter, "due today")
-        
+
+        return _get_project_tasks_by_filter(projects, tomorrow_filter, "due tomorrow", size)
+
     except Exception as e:
-        logger.error(f"Error in get_tasks_due_today: {e}")
+        logger.error(f"Error in get_tasks_due_tomorrow: {e}")
         return f"Error retrieving projects: {str(e)}"
     
 @mcp.tool()
-async def get_tasks_due_in_days(days: int) -> str:
+async def get_tasks_due_in_days(days: int, size: int = 50) -> str:
     """
     Get all tasks from TickTick that are due in exactly X days. Ignores closed projects.
-    
+
     Args:
         days: Number of days from today (0 = today, 1 = tomorrow, etc.)
+        size: Maximum number of tasks to return (default: 50, max: 200)
     """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
     if days < 0:
         return "Days must be a non-negative integer."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def days_filter(task: Dict[str, Any]) -> bool:
             return _is_task_due_in_days(task, days)
-        
+
         day_description = "today" if days == 0 else f"in {days} day{'s' if days != 1 else ''}"
-        return _get_project_tasks_by_filter(projects, days_filter, f"due {day_description}")
-        
+        return _get_project_tasks_by_filter(projects, days_filter, f"due {day_description}", size)
+
     except Exception as e:
         logger.error(f"Error in get_tasks_due_in_days: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_tasks_due_this_week() -> str:
-    """Get all tasks from TickTick that are due within the next 7 days. Ignores closed projects."""
+async def get_tasks_due_this_week(size: int = 50) -> str:
+    """
+    Get all tasks from TickTick that are due within the next 7 days. Ignores closed projects.
+
+    Args:
+        size: Maximum number of tasks to return (default: 50, max: 200)
+    """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def week_filter(task: Dict[str, Any]) -> bool:
             due_date = task.get('dueDate')
             if not due_date:
                 return False
-            
+
             try:
                 task_due_date = datetime.strptime(due_date, "%Y-%m-%dT%H:%M:%S.%f%z").date()
                 today = datetime.now(timezone.utc).date()
@@ -808,38 +866,45 @@ async def get_tasks_due_this_week() -> str:
                 return today <= task_due_date <= week_from_today
             except (ValueError, TypeError):
                 return False
-        
-        return _get_project_tasks_by_filter(projects, week_filter, "due this week")
-        
+
+        return _get_project_tasks_by_filter(projects, week_filter, "due this week", size)
+
     except Exception as e:
         logger.error(f"Error in get_tasks_due_this_week: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def search_tasks(search_term: str) -> str:
+async def search_tasks(search_term: str, size: int = 50) -> str:
     """
     Search for tasks in TickTick by title, content, or subtask titles. Ignores closed projects.
-    
+
     Args:
         search_term: Text to search for (case-insensitive)
+        size: Maximum number of tasks to return (default: 50, max: 200)
     """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
     if not search_term.strip():
         return "Search term cannot be empty."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def search_filter(task: Dict[str, Any]) -> bool:
             return _task_matches_search(task, search_term)
-        
-        return _get_project_tasks_by_filter(projects, search_filter, f"matching '{search_term}'")
-        
+
+        return _get_project_tasks_by_filter(projects, search_filter, f"matching '{search_term}'", size)
+
     except Exception as e:
         logger.error(f"Error in search_tasks: {e}")
         return f"Error retrieving projects: {str(e)}"
@@ -946,54 +1011,72 @@ async def batch_create_tasks(tasks: List[Dict[str, Any]]) -> str:
 # New MCP Tools for Getting things done framework (Priority / Due Dates)
 
 @mcp.tool()
-async def get_engaged_tasks() -> str:
+async def get_engaged_tasks(size: int = 50) -> str:
     """
     Get all tasks from TickTick that are "Engaged".
     This includes tasks marked as high priority (5), due today or overdue.
+
+    Args:
+        size: Maximum number of tasks to return (default: 50, max: 200)
     """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def engaged_filter(task: Dict[str, Any]) -> bool:
             is_high_priority = task.get('priority', 0) == 5
             is_overdue = _is_task_overdue(task)
             is_today = _is_task_due_today(task)
             return is_high_priority or is_overdue or is_today
-        
-        return _get_project_tasks_by_filter(projects, engaged_filter, "engaged")
-        
+
+        return _get_project_tasks_by_filter(projects, engaged_filter, "engaged", size)
+
     except Exception as e:
         logger.error(f"Error in get_engaged_tasks: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_next_tasks() -> str:
+async def get_next_tasks(size: int = 50) -> str:
     """
     Get all tasks from TickTick that are "Next".
     This includes tasks marked as medium priority (3) or due tomorrow.
+
+    Args:
+        size: Maximum number of tasks to return (default: 50, max: 200)
     """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def next_filter(task: Dict[str, Any]) -> bool:
             is_medium_priority = task.get('priority', 0) == 3
             is_due_tomorrow = _is_task_due_in_days(task, 1)
             return is_medium_priority or is_due_tomorrow
-        
-        return _get_project_tasks_by_filter(projects, next_filter, "next")
-        
+
+        return _get_project_tasks_by_filter(projects, next_filter, "next", size)
+
     except Exception as e:
         logger.error(f"Error in get_next_tasks: {e}")
         return f"Error retrieving projects: {str(e)}"
