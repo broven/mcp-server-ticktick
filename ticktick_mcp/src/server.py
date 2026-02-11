@@ -113,24 +113,42 @@ def format_project(project: Dict) -> str:
 # MCP Tools
 
 @mcp.tool()
-async def get_projects() -> str:
-    """Get all projects from TickTick."""
+async def get_projects(size: int = 50) -> str:
+    """
+    Get all projects from TickTick.
+
+    Args:
+        size: Maximum number of projects to return (default: 50, max: 200)
+    """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         if not projects:
             return "No projects found."
-        
-        result = f"Found {len(projects)} projects:\n\n"
-        for i, project in enumerate(projects, 1):
+
+        total_projects = len(projects)
+        truncated_projects = projects[:size]
+
+        result = f"Found {total_projects} projects"
+        if total_projects > size:
+            result += f" (showing first {size})"
+        result += ":\n\n"
+
+        for i, project in enumerate(truncated_projects, 1):
             result += f"Project {i}:\n" + format_project(project) + "\n"
-        
+
         return result
     except Exception as e:
         logger.error(f"Error in get_projects: {e}")
@@ -159,30 +177,44 @@ async def get_project(project_id: str) -> str:
         return f"Error retrieving project: {str(e)}"
 
 @mcp.tool()
-async def get_project_tasks(project_id: str) -> str:
+async def get_project_tasks(project_id: str, size: int = 50) -> str:
     """
     Get all tasks in a specific project.
-    
+
     Args:
         project_id: ID of the project
+        size: Maximum number of tasks to return (default: 50, max: 200)
     """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         project_data = ticktick.get_project_with_data(project_id)
         if 'error' in project_data:
             return f"Error fetching project data: {project_data['error']}"
-        
+
         tasks = project_data.get('tasks', [])
         if not tasks:
             return f"No tasks found in project '{project_data.get('project', {}).get('name', project_id)}'."
-        
-        result = f"Found {len(tasks)} tasks in project '{project_data.get('project', {}).get('name', project_id)}':\n\n"
-        for i, task in enumerate(tasks, 1):
+
+        total_tasks = len(tasks)
+        truncated_tasks = tasks[:size]
+
+        result = f"Found {total_tasks} tasks in project '{project_data.get('project', {}).get('name', project_id)}'"
+        if total_tasks > size:
+            result += f" (showing first {size})"
+        result += ":\n\n"
+
+        for i, task in enumerate(truncated_tasks, 1):
             result += f"Task {i}:\n" + format_task(task) + "\n"
-        
+
         return result
     except Exception as e:
         logger.error(f"Error in get_project_tasks: {e}")
@@ -535,68 +567,96 @@ def _validate_task_data(task_data: Dict[str, Any], task_index: int) -> Optional[
     
     return None
 
-def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name: str) -> str:
+def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name: str, size: int = 50) -> str:
     """
     Helper function to filter tasks across all projects.
-    
+
     Args:
         projects: List of project dictionaries
         filter_func: Function that takes a task and returns True if it matches the filter
         filter_name: Name of the filter for output formatting
-    
+        size: Maximum number of tasks to return (default: 50, max: 200)
+
     Returns:
         Formatted string of filtered tasks
     """
+    # Validate size parameter
+    if size < 1:
+        size = 1
+    if size > 200:
+        size = 200
+
     if not projects:
         return "No projects found."
-    
-    result = f"Found {len(projects)} projects:\n\n"
-    
-    for i, project in enumerate(projects, 1):
+
+    all_filtered_tasks = []
+
+    # First pass: collect all matching tasks
+    for project in projects:
         if project.get('closed'):
             continue
-            
+
         project_id = project.get('id', 'No ID')
         project_data = ticktick.get_project_with_data(project_id)
         tasks = project_data.get('tasks', [])
-        
-        if not tasks:
-            result += f"Project {i}:\n{format_project(project)}"
-            result += f"With 0 tasks that are to be '{filter_name}' in this project :\n\n\n"
-            continue
-        
-        # Filter tasks using the provided function
-        filtered_tasks = [(t, task) for t, task in enumerate(tasks, 1) if filter_func(task)]
-        
-        result += f"Project {i}:\n{format_project(project)}"
-        result += f"With {len(filtered_tasks)} tasks that are to be '{filter_name}' in this project :\n"
-        
-        for t, task in filtered_tasks:
-            result += f"Task {t}:\n{format_task(task)}\n"
-        
-        result += "\n\n"
-    
+
+        for task in tasks:
+            if filter_func(task):
+                all_filtered_tasks.append((project, task))
+
+    total_matched_tasks = len(all_filtered_tasks)
+
+    # Apply size limit
+    if total_matched_tasks > size:
+        result = f"Found {total_matched_tasks} tasks matching '{filter_name}' (showing first {size}):\n\n"
+        all_filtered_tasks = all_filtered_tasks[:size]
+    else:
+        result = f"Found {total_matched_tasks} tasks matching '{filter_name}':\n\n"
+
+    # Group tasks by project for display
+    current_project = None
+    task_counter = 0
+
+    for project, task in all_filtered_tasks:
+        if project != current_project:
+            current_project = project
+            result += f"Project: {format_project(project)}\n"
+
+        task_counter += 1
+        result += f"Task {task_counter}:\n{format_task(task)}\n"
+
     return result
 
 # New MCP Tools for Tasks
 
 @mcp.tool()
-async def get_all_tasks() -> str:
-    """Get all tasks from TickTick. Ignores closed projects."""
+async def get_all_tasks(size: int = 50) -> str:
+    """
+    Get all tasks from TickTick. Ignores closed projects.
+
+    Args:
+        size: Maximum number of tasks to return (default: 50, max: 200)
+    """
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
-    
+
+    # Validate size parameter
+    if size < 1:
+        return "Size must be at least 1."
+    if size > 200:
+        size = 200
+
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
             return f"Error fetching projects: {projects['error']}"
-        
+
         def all_tasks_filter(task: Dict[str, Any]) -> bool:
             return True  # Include all tasks
-        
-        return _get_project_tasks_by_filter(projects, all_tasks_filter, "included")
-        
+
+        return _get_project_tasks_by_filter(projects, all_tasks_filter, "included", size)
+
     except Exception as e:
         logger.error(f"Error in get_all_tasks: {e}")
         return f"Error retrieving projects: {str(e)}"
