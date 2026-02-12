@@ -133,8 +133,8 @@ class TickTickAuth:
     """TickTick OAuth authentication manager."""
     
     def __init__(self, client_id: str = None, client_secret: str = None, 
-                 redirect_uri: str = "http://localhost:8000/callback",
-                 port: int = 8000, env_file: str = None):
+                 redirect_uri: str = "http://localhost:19280/callback",
+                 port: int = 19280, env_file: str = None):
         """
         Initialize the TickTick authentication manager.
         
@@ -145,26 +145,26 @@ class TickTickAuth:
             port: The port to use for the callback server
             env_file: Path to .env file with credentials
         """
-        # Try to load from environment variables or .env file
+        # Load from: args → env vars → ~/.ticktick/config.json
         if env_file:
             load_dotenv(env_file)
         else:
             load_dotenv()
-        
+
+        config = self.load_config()
+
         self.auth_url = os.getenv("TICKTICK_AUTH_URL") or "https://ticktick.com/oauth/authorize"
         self.token_url = os.getenv("TICKTICK_TOKEN_URL") or "https://ticktick.com/oauth/token"
-        self.client_id = client_id or os.getenv("TICKTICK_CLIENT_ID")
-        self.client_secret = client_secret or os.getenv("TICKTICK_CLIENT_SECRET")
+        self.client_id = client_id or os.getenv("TICKTICK_CLIENT_ID") or config.get("client_id")
+        self.client_secret = client_secret or os.getenv("TICKTICK_CLIENT_SECRET") or config.get("client_secret")
         self.redirect_uri = redirect_uri
         self.port = port
         self.auth_code = None
         self.tokens = None
-        
+
         # Check if credentials are available
         if not self.client_id or not self.client_secret:
-            logger.warning("TickTick client ID or client secret is missing. "
-                          "Please set TICKTICK_CLIENT_ID and TICKTICK_CLIENT_SECRET "
-                          "environment variables or provide them as parameters.")
+            logger.warning("TickTick client ID or client secret is missing.")
     
     def get_authorization_url(self, scopes: list = None, state: str = None) -> str:
         """
@@ -295,10 +295,10 @@ class TickTickAuth:
             # Parse the response
             self.tokens = response.json()
             
-            # Save the tokens to the .env file
+            # Save the tokens to ~/.ticktick/tokens.json
             self._save_tokens_to_env()
-            
-            return "Authentication successful! Access token saved to .env file."
+
+            return f"Authentication successful! Config saved to {self.get_config_path()}"
             
         except requests.exceptions.RequestException as e:
             logger.error(f"Error exchanging code for token: {e}")
@@ -310,40 +310,63 @@ class TickTickAuth:
                     return f"Error exchanging code for token: {e.response.text}"
             return f"Error exchanging code for token: {str(e)}"
     
+    @staticmethod
+    def get_config_path() -> Path:
+        """Get the path to the config file in user's home directory."""
+        config_dir = Path.home() / ".ticktick"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        return config_dir / "config.json"
+
+    # Keep backward compatibility alias
+    get_token_path = get_config_path
+
+    @staticmethod
+    def load_config() -> Dict[str, str]:
+        """Load config (credentials + tokens) from ~/.ticktick/config.json."""
+        config_path = TickTickAuth.get_config_path()
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        return {}
+
+    # Keep backward compatibility alias
+    load_tokens = load_config
+
+    @staticmethod
+    def save_config(data: Dict[str, str]) -> None:
+        """Save/merge data into ~/.ticktick/config.json."""
+        config_path = TickTickAuth.get_config_path()
+
+        existing = {}
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                existing = json.load(f)
+
+        existing.update(data)
+
+        with open(config_path, 'w') as f:
+            json.dump(existing, f, indent=2)
+
+        config_path.chmod(0o600)
+
     def _save_tokens_to_env(self) -> None:
-        """Save the tokens to the .env file."""
+        """Save the tokens to ~/.ticktick/config.json."""
         if not self.tokens:
             return
-        
-        # Load existing .env file content
-        env_path = Path('.env')
-        env_content = {}
-        
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        env_content[key] = value
-        
-        # Update with new tokens
-        env_content["TICKTICK_ACCESS_TOKEN"] = self.tokens.get('access_token', '')
+
+        data = {}
+        data["access_token"] = self.tokens.get('access_token', '')
         if 'refresh_token' in self.tokens:
-            env_content["TICKTICK_REFRESH_TOKEN"] = self.tokens.get('refresh_token', '')
-        
-        # Make sure client credentials are saved as well
-        if self.client_id and "TICKTICK_CLIENT_ID" not in env_content:
-            env_content["TICKTICK_CLIENT_ID"] = self.client_id
-        if self.client_secret and "TICKTICK_CLIENT_SECRET" not in env_content:
-            env_content["TICKTICK_CLIENT_SECRET"] = self.client_secret
-        
-        # Write back to .env file
-        with open(env_path, 'w') as f:
-            for key, value in env_content.items():
-                f.write(f"{key}={value}\n")
-        
-        logger.info("Tokens saved to .env file")
+            data["refresh_token"] = self.tokens.get('refresh_token', '')
+
+        # Also persist client credentials so they survive across sessions
+        if self.client_id:
+            data["client_id"] = self.client_id
+        if self.client_secret:
+            data["client_secret"] = self.client_secret
+
+        self.save_config(data)
+        logger.info(f"Config saved to {self.get_config_path()}")
 
 def setup_auth_cli():
     """Run the authentication flow as a CLI utility."""
@@ -352,9 +375,9 @@ def setup_auth_cli():
     parser = argparse.ArgumentParser(description='TickTick OAuth Authentication')
     parser.add_argument('--client-id', help='TickTick client ID')
     parser.add_argument('--client-secret', help='TickTick client secret')
-    parser.add_argument('--redirect-uri', default='http://localhost:8000/callback',
+    parser.add_argument('--redirect-uri', default='http://localhost:19280/callback',
                         help='OAuth redirect URI')
-    parser.add_argument('--port', type=int, default=8000,
+    parser.add_argument('--port', type=int, default=19280,
                         help='Port to use for OAuth callback server')
     parser.add_argument('--env-file', help='Path to .env file with credentials')
     

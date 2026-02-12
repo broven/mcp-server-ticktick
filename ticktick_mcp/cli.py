@@ -11,11 +11,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .src.server import main as server_main
+from .src.auth import TickTickAuth
 from .authenticate import main as auth_main
 
 
 def check_auth_setup() -> bool:
     """Check if authentication is set up properly."""
+    tokens = TickTickAuth.load_tokens()
+    if tokens.get("access_token"):
+        return True
+    # Fallback: check environment variable for backward compatibility
     load_dotenv()
     return os.getenv("TICKTICK_ACCESS_TOKEN") is not None
 

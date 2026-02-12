@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from dotenv import load_dotenv
 from typing import Dict, List, Any, Optional, Tuple
+from .auth import TickTickAuth
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -14,18 +15,25 @@ class TickTickClient:
     """
     Client for the TickTick API using OAuth2 authentication.
     """
-    
+
     def __init__(self):
         load_dotenv()
-        self.client_id = os.getenv("TICKTICK_CLIENT_ID")
-        self.client_secret = os.getenv("TICKTICK_CLIENT_SECRET")
-        self.access_token = os.getenv("TICKTICK_ACCESS_TOKEN")
-        self.refresh_token = os.getenv("TICKTICK_REFRESH_TOKEN")
-        
+
+        # Load config from ~/.ticktick/config.json
+        config = TickTickAuth.load_config()
+
+        # Credentials: env vars (MCP config) → ~/.ticktick/config.json
+        self.client_id = os.getenv("TICKTICK_CLIENT_ID") or config.get("client_id")
+        self.client_secret = os.getenv("TICKTICK_CLIENT_SECRET") or config.get("client_secret")
+
+        # Tokens: ~/.ticktick/config.json → env vars (fallback)
+        self.access_token = config.get("access_token") or os.getenv("TICKTICK_ACCESS_TOKEN")
+        self.refresh_token = config.get("refresh_token") or os.getenv("TICKTICK_REFRESH_TOKEN")
+
         if not self.access_token:
-            raise ValueError("TICKTICK_ACCESS_TOKEN environment variable is not set. "
+            raise ValueError("Access token not found. "
                             "Please run 'uv run -m ticktick_mcp.authenticate' to set up your credentials.")
-            
+
         self.base_url = os.getenv("TICKTICK_BASE_URL") or "https://api.ticktick.com/open/v1"
         self.token_url = os.getenv("TICKTICK_TOKEN_URL") or "https://ticktick.com/oauth/token"
         self.headers = {
@@ -82,7 +90,7 @@ class TickTickClient:
             # Update the headers
             self.headers["Authorization"] = f"Bearer {self.access_token}"
             
-            # Save the tokens to the .env file
+            # Save the tokens to ~/.ticktick/tokens.json
             self._save_tokens_to_env(tokens)
             
             logger.info("Access token refreshed successfully.")
@@ -94,40 +102,17 @@ class TickTickClient:
     
     def _save_tokens_to_env(self, tokens: Dict[str, str]) -> None:
         """
-        Save the tokens to the .env file.
-        
+        Save the tokens to ~/.ticktick/config.json.
+
         Args:
             tokens: A dictionary containing the access_token and optionally refresh_token
         """
-        # Load existing .env file content
-        env_path = Path('.env')
-        env_content = {}
-        
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        env_content[key] = value
-        
-        # Update with new tokens
-        env_content["TICKTICK_ACCESS_TOKEN"] = tokens.get('access_token', '')
+        data = {"access_token": tokens.get('access_token', '')}
         if 'refresh_token' in tokens:
-            env_content["TICKTICK_REFRESH_TOKEN"] = tokens.get('refresh_token', '')
-        
-        # Make sure client credentials are saved as well
-        if self.client_id and "TICKTICK_CLIENT_ID" not in env_content:
-            env_content["TICKTICK_CLIENT_ID"] = self.client_id
-        if self.client_secret and "TICKTICK_CLIENT_SECRET" not in env_content:
-            env_content["TICKTICK_CLIENT_SECRET"] = self.client_secret
-        
-        # Write back to .env file
-        with open(env_path, 'w') as f:
-            for key, value in env_content.items():
-                f.write(f"{key}={value}\n")
-        
-        logger.debug("Tokens saved to .env file")
+            data["refresh_token"] = tokens.get('refresh_token', '')
+
+        TickTickAuth.save_config(data)
+        logger.debug(f"Tokens saved to {TickTickAuth.get_config_path()}")
     
     def _make_request(self, method: str, endpoint: str, data=None) -> Dict:
         """

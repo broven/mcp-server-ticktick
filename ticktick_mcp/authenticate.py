@@ -35,35 +35,36 @@ Before you begin, you will need:
 3. Your Client ID and Client Secret from the TickTick Developer Center
     """)
     
-    # Check if .env file exists and already has credentials
-    env_path = Path('.env')
-    has_credentials = False
-    
-    if env_path.exists():
-        with open(env_path, 'r') as f:
-            content = f.read()
-            if 'TICKTICK_CLIENT_ID' in content and 'TICKTICK_CLIENT_SECRET' in content:
-                has_credentials = True
-    
+    # Check for existing credentials: env vars → ~/.ticktick/config.json
+    config = TickTickAuth.load_config()
+    existing_client_id = os.getenv("TICKTICK_CLIENT_ID") or config.get("client_id")
+    existing_client_secret = os.getenv("TICKTICK_CLIENT_SECRET") or config.get("client_secret")
+    has_credentials = bool(existing_client_id and existing_client_secret)
+
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
-    
+
     if has_credentials:
-        print("Existing TickTick credentials found in .env file.")
+        print(f"Existing TickTick credentials found (Client ID: {existing_client_id[:8]}...).")
         use_existing = input("Do you want to use these credentials? (y/n): ").lower().strip()
-        
+
         if use_existing == 'y':
-            # Proceed with existing credentials (will be loaded by TickTickAuth)
-            print("Using existing credentials from .env file.")
+            client_id = existing_client_id
+            client_secret = existing_client_secret
+            print("Using existing credentials.")
         else:
-            # Ask for new credentials
             client_id = get_user_input("Enter your TickTick Client ID: ")
             client_secret = get_user_input("Enter your TickTick Client Secret: ")
     else:
-        # No existing credentials, ask for new ones
-        print("No existing TickTick credentials found in .env file.")
+        print("No existing TickTick credentials found.")
         client_id = get_user_input("Enter your TickTick Client ID: ")
         client_secret = get_user_input("Enter your TickTick Client Secret: ")
+
+    # Save credentials to ~/.ticktick/config.json
+    TickTickAuth.save_config({
+        "client_id": client_id,
+        "client_secret": client_secret,
+    })
     
     # Initialize the auth manager
     auth = TickTickAuth(
@@ -99,7 +100,7 @@ Authentication failed. Please try again or check the error message above.
 Common issues:
 - Incorrect Client ID or Client Secret
 - Network connectivity problems
-- Permission issues with the .env file
+- Permission issues with the ~/.ticktick/ directory
 
 For further assistance, please refer to the documentation or raise an issue
 on the GitHub repository.
