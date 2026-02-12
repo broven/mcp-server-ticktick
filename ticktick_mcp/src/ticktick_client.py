@@ -17,7 +17,11 @@ class TickTickClient:
     """
 
     def __init__(self):
-        load_dotenv()
+        # Suppress dotenv warnings for malformed .env files (we use ~/.ticktick/config.json now)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            load_dotenv()
 
         # Load config from ~/.ticktick/config.json
         config = TickTickAuth.load_config()

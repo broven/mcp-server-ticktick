@@ -74,7 +74,11 @@ def initialize_client():
     global ticktick
     try:
         # Load config: env vars (MCP config) + ~/.ticktick/config.json
-        load_dotenv()
+        # Suppress dotenv warnings for malformed .env files (we use ~/.ticktick/config.json now)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            load_dotenv()
         config = TickTickAuth.load_config()
 
         # Check if we have valid credentials
