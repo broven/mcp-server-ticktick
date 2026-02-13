@@ -8,8 +8,6 @@ import os
 import argparse
 import logging
 from pathlib import Path
-from dotenv import load_dotenv
-
 from .src.server import main as server_main
 from .src.auth import TickTickAuth
 from .authenticate import main as auth_main
@@ -21,12 +19,6 @@ def check_auth_setup() -> bool:
     if tokens.get("access_token"):
         return True
     # Fallback: check environment variable for backward compatibility
-    # Suppress dotenv warnings for malformed .env files
-    logging.getLogger("dotenv.main").setLevel(logging.ERROR)
-    import warnings
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        load_dotenv()
     return os.getenv("TICKTICK_ACCESS_TOKEN") is not None
 
 def main():

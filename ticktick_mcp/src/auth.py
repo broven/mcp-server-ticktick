@@ -17,7 +17,6 @@ import urllib.parse
 import requests
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Any
-from dotenv import load_dotenv
 import logging
 
 # Set up logging
@@ -132,31 +131,19 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
 class TickTickAuth:
     """TickTick OAuth authentication manager."""
     
-    def __init__(self, client_id: str = None, client_secret: str = None, 
+    def __init__(self, client_id: str = None, client_secret: str = None,
                  redirect_uri: str = "http://localhost:19280/callback",
-                 port: int = 19280, env_file: str = None):
+                 port: int = 19280):
         """
         Initialize the TickTick authentication manager.
-        
+
         Args:
             client_id: The TickTick client ID
             client_secret: The TickTick client secret
             redirect_uri: The redirect URI for OAuth callbacks
             port: The port to use for the callback server
-            env_file: Path to .env file with credentials
         """
         # Load from: args → env vars → ~/.ticktick/config.json
-        # Suppress dotenv warnings for malformed .env files (we use ~/.ticktick/config.json now)
-        # Also suppress logging from dotenv which uses logging.warning instead of warnings.warn
-        logging.getLogger("dotenv.main").setLevel(logging.ERROR)
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            if env_file:
-                load_dotenv(env_file)
-            else:
-                load_dotenv()
-
         config = self.load_config()
 
         self.auth_url = os.getenv("TICKTICK_AUTH_URL") or "https://ticktick.com/oauth/authorize"
@@ -385,16 +372,13 @@ def setup_auth_cli():
                         help='OAuth redirect URI')
     parser.add_argument('--port', type=int, default=19280,
                         help='Port to use for OAuth callback server')
-    parser.add_argument('--env-file', help='Path to .env file with credentials')
-    
     args = parser.parse_args()
-    
+
     auth = TickTickAuth(
         client_id=args.client_id,
         client_secret=args.client_secret,
         redirect_uri=args.redirect_uri,
         port=args.port,
-        env_file=args.env_file
     )
     
     result = auth.start_auth_flow()
