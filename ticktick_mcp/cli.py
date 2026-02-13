@@ -42,7 +42,9 @@ def main():
     
     # 'auth' command for authentication
     auth_parser = subparsers.add_parser("auth", help="Authenticate with TickTick")
-    
+    auth_parser.add_argument('--manual', action='store_true',
+                             help='Manual mode for VPS/remote: print auth URL and prompt for callback URL')
+
     args = parser.parse_args()
     
     # If no command specified, default to 'run'
@@ -57,7 +59,7 @@ def main():
     # Run the appropriate command
     if args.command == "auth":
         # Run authentication flow
-        sys.exit(auth_main())
+        sys.exit(auth_main(manual=args.manual))
     elif args.command == "run":
         # Configure logging based on debug flag
         log_level = logging.DEBUG if args.debug else logging.INFO
