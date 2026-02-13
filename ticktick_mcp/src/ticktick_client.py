@@ -4,7 +4,6 @@ import base64
 import requests
 import logging
 from pathlib import Path
-from dotenv import load_dotenv
 from typing import Dict, List, Any, Optional, Tuple
 from .auth import TickTickAuth
 
@@ -17,14 +16,6 @@ class TickTickClient:
     """
 
     def __init__(self):
-        # Suppress dotenv warnings for malformed .env files (we use ~/.ticktick/config.json now)
-        # Also suppress logging from dotenv which uses logging.warning instead of warnings.warn
-        logging.getLogger("dotenv.main").setLevel(logging.ERROR)
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            load_dotenv()
-
         # Load config from ~/.ticktick/config.json
         config = TickTickAuth.load_config()
 

@@ -7,22 +7,20 @@ This will attempt to initialize the TickTick client and verify the credentials.
 
 import os
 import sys
-from pathlib import Path
-from dotenv import load_dotenv
 from ticktick_mcp.src.ticktick_client import TickTickClient
+from ticktick_mcp.src.auth import TickTickAuth
 from ticktick_mcp.authenticate import main as auth_main
 
 def test_ticktick_connection():
     """Test the connection to TickTick API."""
     print("Testing TickTick MCP server configuration...")
     
-    # Load environment variables
-    load_dotenv()
-    
-    # Check environment variables
-    access_token = os.getenv("TICKTICK_ACCESS_TOKEN")
-    client_id = os.getenv("TICKTICK_CLIENT_ID")
-    client_secret = os.getenv("TICKTICK_CLIENT_SECRET")
+    # Load config from ~/.ticktick/config.json and env vars
+    config = TickTickAuth.load_config()
+
+    access_token = config.get("access_token") or os.getenv("TICKTICK_ACCESS_TOKEN")
+    client_id = os.getenv("TICKTICK_CLIENT_ID") or config.get("client_id")
+    client_secret = os.getenv("TICKTICK_CLIENT_SECRET") or config.get("client_secret")
     
     if not client_id or not client_secret:
         print("❌ ERROR: TICKTICK_CLIENT_ID or TICKTICK_CLIENT_SECRET environment variables are not set.")
@@ -41,8 +39,8 @@ def test_ticktick_connection():
                 # Auth failed
                 return False
             
-            # Reload the environment after authentication
-            load_dotenv()
+            # Reload config after authentication
+            config = TickTickAuth.load_config()
         else:
             print("Please run 'uv run -m ticktick_mcp.cli auth' to authenticate with TickTick.")
             return False
