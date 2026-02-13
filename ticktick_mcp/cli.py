@@ -21,7 +21,10 @@ def check_auth_setup() -> bool:
     if tokens.get("access_token"):
         return True
     # Fallback: check environment variable for backward compatibility
-    load_dotenv()
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        load_dotenv()
     return os.getenv("TICKTICK_ACCESS_TOKEN") is not None
 
 def main():

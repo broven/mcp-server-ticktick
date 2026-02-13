@@ -1143,11 +1143,11 @@ async def create_subtask(
 
 def main():
     """Main entry point for the MCP server."""
-    # Initialize the TickTick client
+    # Try to initialize the TickTick client, but start the server regardless.
+    # If auth fails, individual tools will return helpful error messages.
     if not initialize_client():
-        logger.error("Failed to initialize TickTick client. Please check your API credentials.")
-        return
-    
+        logger.warning("TickTick client not initialized. Tools will prompt for authentication.")
+
     # Run the server
     mcp.run(transport='stdio')
 

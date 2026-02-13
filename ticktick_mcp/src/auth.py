@@ -146,10 +146,14 @@ class TickTickAuth:
             env_file: Path to .env file with credentials
         """
         # Load from: args → env vars → ~/.ticktick/config.json
-        if env_file:
-            load_dotenv(env_file)
-        else:
-            load_dotenv()
+        # Suppress dotenv warnings for malformed .env files (we use ~/.ticktick/config.json now)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if env_file:
+                load_dotenv(env_file)
+            else:
+                load_dotenv()
 
         config = self.load_config()
 
