@@ -16,7 +16,7 @@ async def test_get_projects_with_size_parameter():
 
     # Should indicate truncation and show only 10 projects
     assert "100 projects" in result
-    assert "showing first 10" in result
+    assert "showing 1-10" in result
 
 
 @pytest.mark.asyncio
@@ -31,7 +31,7 @@ async def test_get_projects_default_size():
 
     # Should show default 50 and indicate truncation
     assert "100 projects" in result
-    assert "showing first 50" in result
+    assert "showing 1-50" in result
 
 
 @pytest.mark.asyncio
@@ -46,7 +46,7 @@ async def test_get_project_tasks_with_size_parameter():
 
     # Should indicate truncation
     assert "100 tasks" in result
-    assert "showing first 10" in result
+    assert "showing 1-10" in result
 
 
 @pytest.mark.asyncio
@@ -62,4 +62,4 @@ async def test_get_all_tasks_with_size_parameter():
         result = await get_all_tasks(size=10)
 
     # Should indicate truncation
-    assert "showing first 10" in result
+    assert "showing 1-10" in result
