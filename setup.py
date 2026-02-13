@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="ticktick-mcp",
-    version="0.1.0",
+    name="mcp-server-ticktick",
+    version="0.2.2",
     description="Model Context Protocol (MCP) server for TickTick task management",
-    author="Jaesung Park",
-    author_email="parkjs814@gmail.com",
-    url="https://github.com/parkjs814/ticktick-mcp",
+    author="broven",
+    author_email="",
+    url="https://github.com/broven/mcp-server-ticktick",
     packages=find_packages(),
     install_requires=[
         "mcp[cli]>=1.2.0,<2.0.0",
@@ -17,6 +17,7 @@ setup(
     entry_points={
         "console_scripts": [
             "ticktick-mcp=ticktick_mcp.cli:main",
+            "mcp-server-ticktick=ticktick_mcp.cli:main",
             "ticktick-auth=ticktick_mcp.authenticate:main",
         ],
     },

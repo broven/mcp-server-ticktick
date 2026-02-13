@@ -9,6 +9,7 @@ from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 
 from .ticktick_client import TickTickClient
+from .auth import TickTickAuth
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -20,15 +21,71 @@ mcp = FastMCP("ticktick")
 # Create TickTick client
 ticktick = None
 
+def get_auth_error_message() -> str:
+    """Return a helpful authentication error message for AI to show users."""
+    return """⚠️ TickTick Authentication Required
+
+To use the TickTick MCP server, you need to set up credentials and authenticate.
+
+**Option 1: Configure credentials in MCP config (recommended)**
+
+Add `TICKTICK_CLIENT_ID` and `TICKTICK_CLIENT_SECRET` to your MCP server config:
+```json
+{
+  "mcpServers": {
+    "ticktick": {
+      "command": "uvx",
+      "args": ["mcp-server-ticktick"],
+      "env": {
+        "TICKTICK_CLIENT_ID": "your_client_id",
+        "TICKTICK_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+Then run authentication:
+```bash
+uvx mcp-server-ticktick auth
+```
+
+**Option 2: Interactive setup**
+
+Run the following command and enter your credentials when prompted:
+```bash
+uvx mcp-server-ticktick auth
+```
+
+Credentials and tokens will be saved to `~/.ticktick/config.json`.
+
+**How to get credentials:**
+1. Visit https://developer.ticktick.com/manage (or https://developer.dida365.com/manage for Dida365)
+2. Create an app with redirect URI: `http://localhost:19280/callback`
+3. Copy your Client ID and Client Secret
+
+For China users (Dida365), also add these env vars to MCP config:
+- `TICKTICK_BASE_URL=https://api.dida365.com/open/v1`
+- `TICKTICK_AUTH_URL=https://dida365.com/oauth/authorize`
+- `TICKTICK_TOKEN_URL=https://dida365.com/oauth/token`
+"""
+
 def initialize_client():
     global ticktick
     try:
-        # Check if .env file exists with access token
-        load_dotenv()
-        
+        # Load config: env vars (MCP config) + ~/.ticktick/config.json
+        # Suppress dotenv warnings for malformed .env files (we use ~/.ticktick/config.json now)
+        # Also suppress logging from dotenv which uses logging.warning instead of warnings.warn
+        logging.getLogger("dotenv.main").setLevel(logging.ERROR)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            load_dotenv()
+        config = TickTickAuth.load_config()
+
         # Check if we have valid credentials
-        if os.getenv("TICKTICK_ACCESS_TOKEN") is None:
-            logger.error("No access token found in .env file. Please run 'uv run -m ticktick_mcp.cli auth' to authenticate.")
+        if not config.get("access_token") and os.getenv("TICKTICK_ACCESS_TOKEN") is None:
+            logger.error("Access token not found. Authentication required.")
             return False
         
         # Initialize the client
@@ -122,7 +179,7 @@ async def get_projects(size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -161,7 +218,7 @@ async def get_project(project_id: str) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     try:
         project = ticktick.get_project(project_id)
@@ -184,7 +241,7 @@ async def get_project_tasks(project_id: str, size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -225,7 +282,7 @@ async def get_task(project_id: str, task_id: str) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     try:
         task = ticktick.get_task(project_id, task_id)
@@ -259,7 +316,7 @@ async def create_task(
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     # Validate priority
     if priority not in [0, 1, 3, 5]:
@@ -316,7 +373,7 @@ async def update_task(
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     # Validate priority if provided
     if priority is not None and priority not in [0, 1, 3, 5]:
@@ -361,7 +418,7 @@ async def complete_task(project_id: str, task_id: str) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     try:
         result = ticktick.complete_task(project_id, task_id)
@@ -384,7 +441,7 @@ async def delete_task(project_id: str, task_id: str) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     try:
         result = ticktick.delete_task(project_id, task_id)
@@ -412,7 +469,7 @@ async def create_project(
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     # Validate view_mode
     if view_mode not in ["list", "kanban", "timeline"]:
@@ -443,7 +500,7 @@ async def delete_project(project_id: str) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     try:
         result = ticktick.delete_project(project_id)
@@ -631,7 +688,7 @@ async def get_all_tasks(size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -661,7 +718,7 @@ async def get_tasks_by_priority(priority_id: int, size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     if priority_id not in PRIORITY_MAP:
         return f"Invalid priority_id. Valid values: {list(PRIORITY_MAP.keys())}"
@@ -694,7 +751,7 @@ async def get_tasks_due_today(size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -723,7 +780,7 @@ async def get_overdue_tasks(size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -752,7 +809,7 @@ async def get_tasks_due_tomorrow(size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -782,7 +839,7 @@ async def get_tasks_due_in_days(days: int, size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     if days < 0:
         return "Days must be a non-negative integer."
@@ -815,7 +872,7 @@ async def get_tasks_due_this_week(size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -855,7 +912,7 @@ async def search_tasks(search_term: str, size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     if not search_term.strip():
         return "Search term cannot be empty."
@@ -899,7 +956,7 @@ async def batch_create_tasks(tasks: List[Dict[str, Any]]) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     if not tasks:
         return "No tasks provided. Please provide a list of tasks to create."
@@ -989,7 +1046,7 @@ async def get_engaged_tasks(size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -1022,7 +1079,7 @@ async def get_next_tasks(size: int = 50) -> str:
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
 
     # Validate size parameter
     if size < 1:
@@ -1063,7 +1120,7 @@ async def create_subtask(
     """
     if not ticktick:
         if not initialize_client():
-            return "Failed to initialize TickTick client. Please check your API credentials."
+            return get_auth_error_message()
     
     # Validate priority
     if priority not in [0, 1, 3, 5]:
@@ -1088,11 +1145,11 @@ async def create_subtask(
 
 def main():
     """Main entry point for the MCP server."""
-    # Initialize the TickTick client
+    # Try to initialize the TickTick client, but start the server regardless.
+    # If auth fails, individual tools will return helpful error messages.
     if not initialize_client():
-        logger.error("Failed to initialize TickTick client. Please check your API credentials.")
-        return
-    
+        logger.warning("TickTick client not initialized. Tools will prompt for authentication.")
+
     # Run the server
     mcp.run(transport='stdio')
 

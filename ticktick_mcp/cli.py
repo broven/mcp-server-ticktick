@@ -11,12 +11,22 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .src.server import main as server_main
+from .src.auth import TickTickAuth
 from .authenticate import main as auth_main
 
 
 def check_auth_setup() -> bool:
     """Check if authentication is set up properly."""
-    load_dotenv()
+    tokens = TickTickAuth.load_tokens()
+    if tokens.get("access_token"):
+        return True
+    # Fallback: check environment variable for backward compatibility
+    # Suppress dotenv warnings for malformed .env files
+    logging.getLogger("dotenv.main").setLevel(logging.ERROR)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        load_dotenv()
     return os.getenv("TICKTICK_ACCESS_TOKEN") is not None
 
 def main():
@@ -47,31 +57,11 @@ def main():
     if not args.command:
         args.command = "run"
     
-    # For the run command, check if auth is set up
+    # For the run command, warn if auth is not set up, but proceed
+    # so the MCP server can start and provide helpful error messages via tools
     if args.command == "run" and not check_auth_setup():
-        print("""
-╔════════════════════════════════════════════════╗
-║      TickTick MCP Server - Authentication      ║
-╚════════════════════════════════════════════════╝
+        print("Authentication not configured. Run 'ticktick-auth' or 'uv run -m ticktick_mcp.cli auth' to set up.", file=sys.stderr)
 
-Authentication setup required!
-You need to set up TickTick authentication before running the server.
-
-Would you like to set up authentication now? (y/n): """, end="")
-        choice = input().lower().strip()
-        if choice == 'y':
-            # Run the auth flow
-            auth_result = auth_main()
-            if auth_result != 0:
-                # Auth failed, exit
-                sys.exit(auth_result)
-        else:
-            print("""
-Authentication is required to use the TickTick MCP server.
-Run 'uv run -m ticktick_mcp.cli auth' to set up authentication later.
-            """)
-            sys.exit(1)
-    
     # Run the appropriate command
     if args.command == "auth":
         # Run authentication flow
