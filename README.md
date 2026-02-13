@@ -77,6 +77,20 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Ti
 
 3. Follow the same authentication steps as for TickTick
 
+### Environment Variables
+
+All environment variables are optional and can be set in your MCP server config's `env` block. Credentials and tokens are primarily stored in `~/.ticktick/config.json`.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TICKTICK_CLIENT_ID` | OAuth client ID | `~/.ticktick/config.json` |
+| `TICKTICK_CLIENT_SECRET` | OAuth client secret | `~/.ticktick/config.json` |
+| `TICKTICK_ACCESS_TOKEN` | OAuth access token (fallback) | `~/.ticktick/config.json` |
+| `TICKTICK_REFRESH_TOKEN` | OAuth refresh token (fallback) | `~/.ticktick/config.json` |
+| `TICKTICK_BASE_URL` | API base URL | `https://api.ticktick.com/open/v1` |
+| `TICKTICK_AUTH_URL` | OAuth authorization URL | `https://ticktick.com/oauth/authorize` |
+| `TICKTICK_TOKEN_URL` | OAuth token URL | `https://ticktick.com/oauth/token` |
+
 
 ## Available MCP Tools
 
@@ -160,7 +174,6 @@ For example:
 
 ```
 mcp-server-ticktick/
-├── .env.template          # Template for environment variables
 ├── README.md              # Project documentation
 ├── requirements.txt       # Project dependencies
 ├── setup.py               # Package setup file

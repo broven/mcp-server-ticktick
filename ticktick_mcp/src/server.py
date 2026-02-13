@@ -6,7 +6,6 @@ from datetime import datetime, timezone, date, timedelta
 from typing import Dict, List, Any, Optional
 
 from mcp.server.fastmcp import FastMCP
-from dotenv import load_dotenv
 
 from .ticktick_client import TickTickClient
 from .auth import TickTickAuth
@@ -74,13 +73,6 @@ def initialize_client():
     global ticktick
     try:
         # Load config: env vars (MCP config) + ~/.ticktick/config.json
-        # Suppress dotenv warnings for malformed .env files (we use ~/.ticktick/config.json now)
-        # Also suppress logging from dotenv which uses logging.warning instead of warnings.warn
-        logging.getLogger("dotenv.main").setLevel(logging.ERROR)
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            load_dotenv()
         config = TickTickAuth.load_config()
 
         # Check if we have valid credentials

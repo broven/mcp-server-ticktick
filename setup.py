@@ -10,7 +10,6 @@ setup(
     packages=find_packages(),
     install_requires=[
         "mcp[cli]>=1.2.0,<2.0.0",
-        "python-dotenv>=1.0.0,<2.0.0",
         "requests>=2.30.0,<3.0.0",
     ],
     python_requires=">=3.10",
