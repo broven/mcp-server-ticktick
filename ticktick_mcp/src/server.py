@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import os
 import logging
 from datetime import datetime, timezone, date, timedelta
@@ -238,20 +239,23 @@ async def ticktick_auth_complete(callback_url: str) -> str:
 # MCP Tools — Data
 
 @mcp.tool()
-async def get_projects(size: int = 50) -> str:
+async def get_projects(size: int = 50, page: int = 1) -> str:
     """
     Get all projects from TickTick.
 
     Args:
-        size: Maximum number of projects to return (default: 50)
+        size: Maximum number of projects to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -261,15 +265,22 @@ async def get_projects(size: int = 50) -> str:
             return "No projects found."
 
         total_projects = len(projects)
-        truncated_projects = projects[:size]
+        total_pages = max(1, math.ceil(total_projects / size))
 
-        result = f"Found {total_projects} projects"
-        if total_projects > size:
-            result += f" (showing first {size})"
-        result += ":\n\n"
+        if page > total_pages:
+            return f"Page {page} exceeds available pages (total: {total_pages}). Use page=1 to page={total_pages}."
 
-        for i, project in enumerate(truncated_projects, 1):
+        start = (page - 1) * size
+        end = start + size
+        paginated_projects = projects[start:end]
+
+        result = f"Found {total_projects} projects (page {page}/{total_pages}, showing {start + 1}-{min(end, total_projects)}):\n\n"
+
+        for i, project in enumerate(paginated_projects, start + 1):
             result += f"Project {i}:\n" + format_project(project) + "\n"
+
+        if page < total_pages:
+            result += f"\nUse page={page + 1} to see next page."
 
         return result
     except Exception as e:
@@ -299,21 +310,24 @@ async def get_project(project_id: str) -> str:
         return f"Error retrieving project: {str(e)}"
 
 @mcp.tool()
-async def get_project_tasks(project_id: str, size: int = 50) -> str:
+async def get_project_tasks(project_id: str, size: int = 50, page: int = 1) -> str:
     """
     Get all tasks in a specific project.
 
     Args:
         project_id: ID of the project
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         project_data = ticktick.get_project_with_data(project_id)
         if 'error' in project_data:
@@ -324,15 +338,22 @@ async def get_project_tasks(project_id: str, size: int = 50) -> str:
             return f"No tasks found in project '{project_data.get('project', {}).get('name', project_id)}'."
 
         total_tasks = len(tasks)
-        truncated_tasks = tasks[:size]
+        total_pages = max(1, math.ceil(total_tasks / size))
 
-        result = f"Found {total_tasks} tasks in project '{project_data.get('project', {}).get('name', project_id)}'"
-        if total_tasks > size:
-            result += f" (showing first {size})"
-        result += ":\n\n"
+        if page > total_pages:
+            return f"Page {page} exceeds available pages (total: {total_pages}). Use page=1 to page={total_pages}."
 
-        for i, task in enumerate(truncated_tasks, 1):
+        start = (page - 1) * size
+        end = start + size
+        paginated_tasks = tasks[start:end]
+
+        result = f"Found {total_tasks} tasks in project '{project_data.get('project', {}).get('name', project_id)}' (page {page}/{total_pages}, showing {start + 1}-{min(end, total_tasks)}):\n\n"
+
+        for i, task in enumerate(paginated_tasks, start + 1):
             result += f"Task {i}:\n" + format_task(task) + "\n"
+
+        if page < total_pages:
+            result += f"\nUse page={page + 1} to see next page."
 
         return result
     except Exception as e:
@@ -686,7 +707,7 @@ def _validate_task_data(task_data: Dict[str, Any], task_index: int) -> Optional[
     
     return None
 
-def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name: str, size: int = 50) -> str:
+def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name: str, size: int = 50, page: int = 1) -> str:
     """
     Helper function to filter tasks across all projects.
 
@@ -694,12 +715,13 @@ def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name:
         projects: List of project dictionaries
         filter_func: Function that takes a task and returns True if it matches the filter
         filter_name: Name of the filter for output formatting
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
 
     Returns:
         Formatted string of filtered tasks
     """
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         size = 1
 
@@ -722,19 +744,25 @@ def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name:
                 all_filtered_tasks.append((project, task))
 
     total_matched_tasks = len(all_filtered_tasks)
+    total_pages = max(1, math.ceil(total_matched_tasks / size)) if total_matched_tasks > 0 else 1
 
-    # Apply size limit
-    if total_matched_tasks > size:
-        result = f"Found {total_matched_tasks} tasks matching '{filter_name}' (showing first {size}):\n\n"
-        all_filtered_tasks = all_filtered_tasks[:size]
+    if page > total_pages:
+        return f"Page {page} exceeds available pages (total: {total_pages}). Use page=1 to page={total_pages}."
+
+    start = (page - 1) * size
+    end = start + size
+    paginated_tasks = all_filtered_tasks[start:end]
+
+    if total_matched_tasks > 0:
+        result = f"Found {total_matched_tasks} tasks matching '{filter_name}' (page {page}/{total_pages}, showing {start + 1}-{min(end, total_matched_tasks)}):\n\n"
     else:
-        result = f"Found {total_matched_tasks} tasks matching '{filter_name}':\n\n"
+        result = f"Found 0 tasks matching '{filter_name}':\n\n"
 
     # Group tasks by project for display
     current_project = None
-    task_counter = 0
+    task_counter = start
 
-    for project, task in all_filtered_tasks:
+    for project, task in paginated_tasks:
         if project != current_project:
             current_project = project
             result += f"Project: {format_project(project)}\n"
@@ -742,25 +770,31 @@ def _get_project_tasks_by_filter(projects: List[Dict], filter_func, filter_name:
         task_counter += 1
         result += f"Task {task_counter}:\n{format_task(task)}\n"
 
+    if page < total_pages:
+        result += f"\nUse page={page + 1} to see next page."
+
     return result
 
 # New MCP Tools for Tasks
 
 @mcp.tool()
-async def get_all_tasks(size: int = 50) -> str:
+async def get_all_tasks(size: int = 50, page: int = 1) -> str:
     """
     Get all tasks from TickTick. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -769,20 +803,21 @@ async def get_all_tasks(size: int = 50) -> str:
         def all_tasks_filter(task: Dict[str, Any]) -> bool:
             return True  # Include all tasks
 
-        return _get_project_tasks_by_filter(projects, all_tasks_filter, "included", size)
+        return _get_project_tasks_by_filter(projects, all_tasks_filter, "included", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_all_tasks: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_tasks_by_priority(priority_id: int, size: int = 50) -> str:
+async def get_tasks_by_priority(priority_id: int, size: int = 50, page: int = 1) -> str:
     """
     Get all tasks from TickTick by priority. Ignores closed projects.
 
     Args:
         priority_id: Priority of tasks to retrieve {0: "None", 1: "Low", 3: "Medium", 5: "High"}
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
@@ -791,9 +826,11 @@ async def get_tasks_by_priority(priority_id: int, size: int = 50) -> str:
     if priority_id not in PRIORITY_MAP:
         return f"Invalid priority_id. Valid values: {list(PRIORITY_MAP.keys())}"
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -803,27 +840,30 @@ async def get_tasks_by_priority(priority_id: int, size: int = 50) -> str:
             return task.get('priority', 0) == priority_id
 
         priority_name = f"{PRIORITY_MAP[priority_id]} ({priority_id})"
-        return _get_project_tasks_by_filter(projects, priority_filter, f"priority '{priority_name}'", size)
+        return _get_project_tasks_by_filter(projects, priority_filter, f"priority '{priority_name}'", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_tasks_by_priority: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_tasks_due_today(size: int = 50) -> str:
+async def get_tasks_due_today(size: int = 50, page: int = 1) -> str:
     """
     Get all tasks from TickTick that are due today. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -832,27 +872,30 @@ async def get_tasks_due_today(size: int = 50) -> str:
         def today_filter(task: Dict[str, Any]) -> bool:
             return _is_task_due_today(task)
 
-        return _get_project_tasks_by_filter(projects, today_filter, "due today", size)
+        return _get_project_tasks_by_filter(projects, today_filter, "due today", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_tasks_due_today: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_overdue_tasks(size: int = 50) -> str:
+async def get_overdue_tasks(size: int = 50, page: int = 1) -> str:
     """
     Get all overdue tasks from TickTick. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -861,27 +904,30 @@ async def get_overdue_tasks(size: int = 50) -> str:
         def overdue_filter(task: Dict[str, Any]) -> bool:
             return _is_task_overdue(task)
 
-        return _get_project_tasks_by_filter(projects, overdue_filter, "overdue", size)
+        return _get_project_tasks_by_filter(projects, overdue_filter, "overdue", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_overdue_tasks: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_tasks_due_tomorrow(size: int = 50) -> str:
+async def get_tasks_due_tomorrow(size: int = 50, page: int = 1) -> str:
     """
     Get all tasks from TickTick that are due tomorrow. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -890,20 +936,21 @@ async def get_tasks_due_tomorrow(size: int = 50) -> str:
         def tomorrow_filter(task: Dict[str, Any]) -> bool:
             return _is_task_due_in_days(task, 1)
 
-        return _get_project_tasks_by_filter(projects, tomorrow_filter, "due tomorrow", size)
+        return _get_project_tasks_by_filter(projects, tomorrow_filter, "due tomorrow", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_tasks_due_tomorrow: {e}")
         return f"Error retrieving projects: {str(e)}"
     
 @mcp.tool()
-async def get_tasks_due_in_days(days: int, size: int = 50) -> str:
+async def get_tasks_due_in_days(days: int, size: int = 50, page: int = 1) -> str:
     """
     Get all tasks from TickTick that are due in exactly X days. Ignores closed projects.
 
     Args:
         days: Number of days from today (0 = today, 1 = tomorrow, etc.)
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
@@ -912,9 +959,11 @@ async def get_tasks_due_in_days(days: int, size: int = 50) -> str:
     if days < 0:
         return "Days must be a non-negative integer."
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -924,27 +973,30 @@ async def get_tasks_due_in_days(days: int, size: int = 50) -> str:
             return _is_task_due_in_days(task, days)
 
         day_description = "today" if days == 0 else f"in {days} day{'s' if days != 1 else ''}"
-        return _get_project_tasks_by_filter(projects, days_filter, f"due {day_description}", size)
+        return _get_project_tasks_by_filter(projects, days_filter, f"due {day_description}", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_tasks_due_in_days: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_tasks_due_this_week(size: int = 50) -> str:
+async def get_tasks_due_this_week(size: int = 50, page: int = 1) -> str:
     """
     Get all tasks from TickTick that are due within the next 7 days. Ignores closed projects.
 
     Args:
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -963,20 +1015,21 @@ async def get_tasks_due_this_week(size: int = 50) -> str:
             except (ValueError, TypeError):
                 return False
 
-        return _get_project_tasks_by_filter(projects, week_filter, "due this week", size)
+        return _get_project_tasks_by_filter(projects, week_filter, "due this week", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_tasks_due_this_week: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def search_tasks(search_term: str, size: int = 50) -> str:
+async def search_tasks(search_term: str, size: int = 50, page: int = 1) -> str:
     """
     Search for tasks in TickTick by title, content, or subtask titles. Ignores closed projects.
 
     Args:
         search_term: Text to search for (case-insensitive)
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
@@ -985,9 +1038,11 @@ async def search_tasks(search_term: str, size: int = 50) -> str:
     if not search_term.strip():
         return "Search term cannot be empty."
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -996,7 +1051,7 @@ async def search_tasks(search_term: str, size: int = 50) -> str:
         def search_filter(task: Dict[str, Any]) -> bool:
             return _task_matches_search(task, search_term)
 
-        return _get_project_tasks_by_filter(projects, search_filter, f"matching '{search_term}'", size)
+        return _get_project_tasks_by_filter(projects, search_filter, f"matching '{search_term}'", size, page)
 
     except Exception as e:
         logger.error(f"Error in search_tasks: {e}")
@@ -1104,21 +1159,24 @@ async def batch_create_tasks(tasks: List[Dict[str, Any]]) -> str:
 # New MCP Tools for Getting things done framework (Priority / Due Dates)
 
 @mcp.tool()
-async def get_engaged_tasks(size: int = 50) -> str:
+async def get_engaged_tasks(size: int = 50, page: int = 1) -> str:
     """
     Get all tasks from TickTick that are "Engaged".
     This includes tasks marked as high priority (5), due today or overdue.
 
     Args:
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -1130,28 +1188,31 @@ async def get_engaged_tasks(size: int = 50) -> str:
             is_today = _is_task_due_today(task)
             return is_high_priority or is_overdue or is_today
 
-        return _get_project_tasks_by_filter(projects, engaged_filter, "engaged", size)
+        return _get_project_tasks_by_filter(projects, engaged_filter, "engaged", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_engaged_tasks: {e}")
         return f"Error retrieving projects: {str(e)}"
 
 @mcp.tool()
-async def get_next_tasks(size: int = 50) -> str:
+async def get_next_tasks(size: int = 50, page: int = 1) -> str:
     """
     Get all tasks from TickTick that are "Next".
     This includes tasks marked as medium priority (3) or due tomorrow.
 
     Args:
-        size: Maximum number of tasks to return (default: 50)
+        size: Maximum number of tasks to return per page (default: 50)
+        page: Page number starting from 1 (default: 1)
     """
     if not ticktick:
         if not initialize_client():
             return get_auth_error_message()
 
-    # Validate size parameter
+    # Validate parameters
     if size < 1:
         return "Size must be at least 1."
+    if page < 1:
+        return "Page must be at least 1."
     try:
         projects = ticktick.get_projects()
         if 'error' in projects:
@@ -1162,7 +1223,7 @@ async def get_next_tasks(size: int = 50) -> str:
             is_due_tomorrow = _is_task_due_in_days(task, 1)
             return is_medium_priority or is_due_tomorrow
 
-        return _get_project_tasks_by_filter(projects, next_filter, "next", size)
+        return _get_project_tasks_by_filter(projects, next_filter, "next", size, page)
 
     except Exception as e:
         logger.error(f"Error in get_next_tasks: {e}")
