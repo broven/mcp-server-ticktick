@@ -200,61 +200,95 @@ class TickTickAuth:
         query_string = urllib.parse.urlencode(params)
         return f"{self.auth_url}?{query_string}"
     
-    def start_auth_flow(self, scopes: list = None) -> str:
+    def _parse_callback_url(self, url: str, expected_state: str = None) -> str:
+        """
+        Parse the OAuth callback URL to extract the authorization code.
+
+        Args:
+            url: The full callback URL from the browser address bar
+            expected_state: The expected state parameter for CSRF validation
+
+        Returns:
+            The authorization code
+
+        Raises:
+            ValueError: If the URL is invalid or missing required parameters
+        """
+        try:
+            parsed = urllib.parse.urlparse(url.strip())
+            params = urllib.parse.parse_qs(parsed.query)
+        except Exception:
+            raise ValueError("Invalid URL format. Please paste the complete URL from the browser address bar.")
+
+        if 'code' not in params:
+            raise ValueError("Authorization code not found in URL. Make sure you copied the complete URL after authorization.")
+
+        if expected_state and 'state' in params:
+            if params['state'][0] != expected_state:
+                raise ValueError("State parameter mismatch. This may indicate a CSRF attack. Please try again.")
+
+        return params['code'][0]
+
+    def start_auth_flow(self, scopes: list = None, manual: bool = False) -> str:
         """
         Start the OAuth flow by opening the browser and waiting for the callback.
-        
+
         Args:
             scopes: List of OAuth scopes to request
-            
+            manual: If True, skip browser auto-open and local server;
+                    prompt user to paste the callback URL instead
+
         Returns:
             The obtained access token or an error message
         """
         if not self.client_id or not self.client_secret:
             return "TickTick client ID or client secret is missing. Please set up your credentials first."
-        
+
         # Generate a random state parameter for CSRF protection
         state = base64.urlsafe_b64encode(os.urandom(30)).decode('utf-8')
-        
+
         # Get the authorization URL
         auth_url = self.get_authorization_url(scopes, state)
-        
+
+        if manual:
+            return self._manual_auth_flow(auth_url, state)
+
         print(f"Opening browser for TickTick authorization...")
         print(f"If the browser doesn't open automatically, please visit this URL:")
         print(auth_url)
-        
+
         # Open the browser for the user to authorize
         webbrowser.open(auth_url)
-        
+
         # Start a local server to handle the OAuth callback
         httpd = None
         try:
             # Use a socket server to handle the callback
             OAuthCallbackHandler.auth_code = None
             httpd = socketserver.TCPServer(("", self.port), OAuthCallbackHandler)
-            
+
             print(f"Waiting for authentication callback on port {self.port}...")
-            
+
             # Run the server until we get the authorization code
             # Set a timeout for the server
             timeout = 300  # 5 minutes
             start_time = time.time()
-            
+
             while not OAuthCallbackHandler.auth_code:
                 # Handle one request with a short timeout
                 httpd.timeout = 1.0
                 httpd.handle_request()
-                
+
                 # Check if we've timed out
                 if time.time() - start_time > timeout:
                     return "Authentication timed out. Please try again."
-            
+
             # Store the auth code
             self.auth_code = OAuthCallbackHandler.auth_code
-            
+
             # Exchange the code for tokens
             return self.exchange_code_for_token()
-            
+
         except Exception as e:
             logger.error(f"Error during OAuth flow: {e}")
             return f"Error during OAuth flow: {str(e)}"
@@ -262,6 +296,66 @@ class TickTickAuth:
             # Clean up the server
             if httpd:
                 httpd.server_close()
+
+    def _manual_auth_flow(self, auth_url: str, state: str) -> str:
+        """
+        Manual OAuth flow for VPS/remote environments.
+        Prints auth URL and waits for user to paste the callback URL.
+
+        Args:
+            auth_url: The authorization URL
+            state: The state parameter for CSRF validation
+
+        Returns:
+            Success message or error message
+        """
+        print("\nPlease open the following URL in your browser to authorize:")
+        print(auth_url)
+        print("\nAfter authorization, the browser will redirect to a page that won't load.")
+        print("Copy the full URL from the address bar and paste it here:")
+
+        try:
+            callback_url = input("> ").strip()
+            if not callback_url:
+                return "No URL provided. Authentication cancelled."
+
+            self.auth_code = self._parse_callback_url(callback_url, state)
+            return self.exchange_code_for_token()
+        except ValueError as e:
+            return f"Authentication failed: {e}"
+        except (KeyboardInterrupt, EOFError):
+            return "\nAuthentication cancelled."
+
+    def generate_auth_url_with_state(self, scopes: list = None) -> Tuple[str, str]:
+        """
+        Generate authorization URL and state for external use (e.g. MCP tools).
+
+        Returns:
+            Tuple of (auth_url, state)
+        """
+        if not self.client_id or not self.client_secret:
+            raise ValueError("TickTick client ID or client secret is missing.")
+
+        state = base64.urlsafe_b64encode(os.urandom(30)).decode('utf-8')
+        auth_url = self.get_authorization_url(scopes, state)
+        return auth_url, state
+
+    def complete_auth_with_callback_url(self, callback_url: str, expected_state: str = None) -> str:
+        """
+        Complete OAuth flow by parsing a callback URL. For external use (e.g. MCP tools).
+
+        Args:
+            callback_url: The full callback URL from the browser
+            expected_state: The expected state parameter
+
+        Returns:
+            Success message or error message
+        """
+        try:
+            self.auth_code = self._parse_callback_url(callback_url, expected_state)
+            return self.exchange_code_for_token()
+        except ValueError as e:
+            return f"Authentication failed: {e}"
     
     def exchange_code_for_token(self) -> str:
         """
@@ -386,9 +480,11 @@ def setup_auth_cli():
     parser.add_argument('--port', type=int, default=19280,
                         help='Port to use for OAuth callback server')
     parser.add_argument('--env-file', help='Path to .env file with credentials')
-    
+    parser.add_argument('--manual', action='store_true',
+                        help='Manual mode for VPS/remote: print auth URL and prompt for callback URL')
+
     args = parser.parse_args()
-    
+
     auth = TickTickAuth(
         client_id=args.client_id,
         client_secret=args.client_secret,
@@ -396,8 +492,8 @@ def setup_auth_cli():
         port=args.port,
         env_file=args.env_file
     )
-    
-    result = auth.start_auth_flow()
+
+    result = auth.start_auth_flow(manual=args.manual)
     print(result)
 
 if __name__ == "__main__":

@@ -167,7 +167,83 @@ def format_project(project: Dict) -> str:
     
     return formatted
 
-# MCP Tools
+# Module-level state for MCP auth flow
+_pending_auth_state: Optional[str] = None
+_pending_auth: Optional[TickTickAuth] = None
+
+# MCP Tools — Authentication
+
+@mcp.tool()
+async def ticktick_auth_start() -> str:
+    """
+    Start the TickTick OAuth authorization flow.
+    Returns an authorization URL for the user to open in their browser.
+    After the user authorizes, they should paste the callback URL back,
+    then call ticktick_auth_complete with that URL.
+    """
+    global _pending_auth_state, _pending_auth
+
+    config = TickTickAuth.load_config()
+    client_id = os.getenv("TICKTICK_CLIENT_ID") or config.get("client_id")
+    client_secret = os.getenv("TICKTICK_CLIENT_SECRET") or config.get("client_secret")
+
+    if not client_id or not client_secret:
+        return (
+            "TickTick credentials not found. Please configure them first:\n\n"
+            "Add TICKTICK_CLIENT_ID and TICKTICK_CLIENT_SECRET to your MCP server config,\n"
+            "or save them to ~/.ticktick/config.json.\n\n"
+            "Get credentials at: https://developer.ticktick.com/manage"
+        )
+
+    auth = TickTickAuth(client_id=client_id, client_secret=client_secret)
+    try:
+        auth_url, state = auth.generate_auth_url_with_state()
+    except ValueError as e:
+        return str(e)
+
+    _pending_auth_state = state
+    _pending_auth = auth
+
+    return (
+        f"Please ask the user to open this URL in their browser to authorize:\n\n"
+        f"{auth_url}\n\n"
+        f"After authorization, the browser will redirect to a page that won't load. "
+        f"Ask the user to copy the full URL from the address bar and send it back. "
+        f"Then call ticktick_auth_complete with that URL."
+    )
+
+
+@mcp.tool()
+async def ticktick_auth_complete(callback_url: str) -> str:
+    """
+    Complete the TickTick OAuth flow by parsing the callback URL.
+    Call ticktick_auth_start first to get the authorization URL.
+
+    Args:
+        callback_url: The full callback URL from the browser address bar after authorization
+    """
+    global _pending_auth_state, _pending_auth, ticktick
+
+    if not _pending_auth:
+        return "No pending auth flow. Please call ticktick_auth_start first."
+
+    result = _pending_auth.complete_auth_with_callback_url(callback_url, _pending_auth_state)
+
+    # Clean up state
+    _pending_auth_state = None
+    _pending_auth = None
+
+    if "successful" in result.lower():
+        # Re-initialize client with new tokens
+        if initialize_client():
+            return result + "\n\nTickTick client re-initialized. You can now use all TickTick tools."
+        else:
+            return result + "\n\nWarning: Config saved but client re-initialization failed. Please restart the server."
+
+    return result
+
+
+# MCP Tools — Data
 
 @mcp.tool()
 async def get_projects(size: int = 50) -> str:

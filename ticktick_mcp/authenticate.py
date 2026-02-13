@@ -9,23 +9,35 @@ and obtaining the necessary access tokens for the TickTick MCP server.
 import sys
 import os
 import logging
+import argparse
 from typing import Optional
 from pathlib import Path
 from .src.auth import TickTickAuth
 
-def main() -> int:
-    """Run the authentication flow."""
+def main(manual: Optional[bool] = None) -> int:
+    """Run the authentication flow.
+
+    Args:
+        manual: If provided, override the --manual flag. Used when called from cli.py.
+    """
+    if manual is None:
+        parser = argparse.ArgumentParser(description='TickTick MCP Server Authentication')
+        parser.add_argument('--manual', action='store_true',
+                            help='Manual mode for VPS/remote: print auth URL and prompt for callback URL')
+        args = parser.parse_args()
+        manual = args.manual
+
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-    
+
     print("""
 ╔════════════════════════════════════════════════╗
 ║       TickTick MCP Server Authentication       ║
 ╚════════════════════════════════════════════════╝
-    
+
 This utility will help you authenticate with TickTick
 and obtain the necessary access tokens for the TickTick MCP server.
 
@@ -72,12 +84,17 @@ Before you begin, you will need:
         client_secret=client_secret
     )
     
-    print("\nStarting the OAuth authentication flow...")
-    print("A browser window will open for you to authorize the application.")
-    print("After authorization, you will be redirected back to this application.\n")
-    
+    manual = args.manual
+    if manual:
+        print("\nStarting the OAuth authentication flow in manual mode...")
+        print("You will need to open the authorization URL in a browser manually.\n")
+    else:
+        print("\nStarting the OAuth authentication flow...")
+        print("A browser window will open for you to authorize the application.")
+        print("After authorization, you will be redirected back to this application.\n")
+
     # Start the OAuth flow
-    result = auth.start_auth_flow()
+    result = auth.start_auth_flow(manual=manual)
     
     print("\n" + result)
     
