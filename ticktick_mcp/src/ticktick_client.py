@@ -18,6 +18,8 @@ class TickTickClient:
 
     def __init__(self):
         # Suppress dotenv warnings for malformed .env files (we use ~/.ticktick/config.json now)
+        # Also suppress logging from dotenv which uses logging.warning instead of warnings.warn
+        logging.getLogger("dotenv.main").setLevel(logging.ERROR)
         import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
